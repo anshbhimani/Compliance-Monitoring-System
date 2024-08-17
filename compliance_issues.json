@@ -18,10 +18,13 @@
         "No rule found allowing SSH (port 22)."
     ],
     "check_default_passwords": [
-        "No rule found allowing SSH (port 22)."
+        "PasswordAuthentication is enabled in SSH configuration. Consider disabling it."
     ],
     "check_encryption": [
         "Data at rest is not encrypted using LUKS or other encryption methods.",
         "HTTPS is not enabled for data in transit."
+    ],
+    "check_network_monitoring": [
+        "Unusual network activity detected on port 22."
     ]
 }
