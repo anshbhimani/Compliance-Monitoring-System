@@ -4,6 +4,8 @@ import re
 import paramiko
 import logging
 from subprocess import call
+from dotenv import load_dotenv
+import os
 
 # Set up logging
 logging.basicConfig(filename='compliance_check.log', 
@@ -18,6 +20,15 @@ def check_install_dependency(module_name):
         call(["pip", "install", module_name])
 
 check_install_dependency("paramiko")
+
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve credentials from environment variables
+hostname = os.getenv('SSH_HOSTNAME')
+username = os.getenv('SSH_USERNAME')
+password = os.getenv('SSH_PASSWORD')
 
 def create_ssh_client(hostname, username, password):
     """
@@ -313,10 +324,6 @@ def check_compliance(hostname, username, password):
         return [f"Error: {e}"]
 
 if __name__ == "__main__":
-    # Host details
-    hostname = "20.244.90.235"
-    username = "ansh"
-    password = "MinorProject@123"
     try:
         ssh = create_ssh_client(hostname, username, password)
         
