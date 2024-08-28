@@ -1,23 +1,23 @@
-2024-08-17 22:28:02,442 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
-2024-08-17 22:28:02,677 - INFO - Authentication (publickey) failed.
-2024-08-17 22:28:02,750 - INFO - Authentication (password) successful!
-2024-08-17 22:28:02,750 - INFO - SSH connection established using password authentication.
-2024-08-17 22:28:02,812 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
-2024-08-17 22:28:03,008 - INFO - Authentication (publickey) failed.
-2024-08-17 22:28:03,076 - INFO - Authentication (password) successful!
-2024-08-17 22:28:03,076 - INFO - SSH connection established using password authentication.
-2024-08-17 22:28:03,076 - INFO - SSH connection established for track and monitor access check.
-2024-08-17 22:28:03,619 - INFO - SSH connection established for security policy check.
-2024-08-17 22:28:03,865 - INFO - SSH connection established to retrieve firewall rules.
-2024-08-17 22:28:04,370 - INFO - SSH connection established for default passwords check.
-2024-08-17 22:28:04,944 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
-2024-08-17 22:28:05,153 - INFO - Authentication (publickey) failed.
-2024-08-17 22:28:05,223 - INFO - Authentication (password) successful!
-2024-08-17 22:28:05,223 - INFO - SSH connection established using password authentication.
-2024-08-17 22:28:05,223 - INFO - SSH connection established for encryption check.
-2024-08-17 22:28:05,565 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
-2024-08-17 22:28:05,723 - INFO - Authentication (publickey) failed.
-2024-08-17 22:28:05,776 - INFO - Authentication (password) successful!
-2024-08-17 22:28:05,778 - INFO - SSH connection established using password authentication.
-2024-08-17 22:28:05,778 - INFO - SSH connection established for network monitoring check.
-2024-08-17 22:28:06,093 - INFO - Compliance check completed.
+2024-08-28 11:54:53,667 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
+2024-08-28 11:54:53,856 - INFO - Authentication (publickey) failed.
+2024-08-28 11:54:53,906 - INFO - Authentication (password) successful!
+2024-08-28 11:54:53,906 - INFO - SSH connection established using password authentication.
+2024-08-28 11:54:53,950 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
+2024-08-28 11:54:54,130 - INFO - Authentication (publickey) failed.
+2024-08-28 11:54:54,183 - INFO - Authentication (password) successful!
+2024-08-28 11:54:54,183 - INFO - SSH connection established using password authentication.
+2024-08-28 11:54:54,184 - INFO - SSH connection established for track and monitor access check.
+2024-08-28 11:54:54,662 - INFO - SSH connection established for security policy check.
+2024-08-28 11:54:54,853 - INFO - SSH connection established to retrieve firewall rules.
+2024-08-28 11:54:55,257 - INFO - SSH connection established for default passwords check.
+2024-08-28 11:54:55,719 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
+2024-08-28 11:54:55,921 - INFO - Authentication (publickey) failed.
+2024-08-28 11:54:55,993 - INFO - Authentication (password) successful!
+2024-08-28 11:54:55,993 - INFO - SSH connection established using password authentication.
+2024-08-28 11:54:55,993 - INFO - SSH connection established for encryption check.
+2024-08-28 11:54:56,354 - INFO - Connected (version 2.0, client OpenSSH_8.9p1)
+2024-08-28 11:54:56,525 - INFO - Authentication (publickey) failed.
+2024-08-28 11:54:56,573 - INFO - Authentication (password) successful!
+2024-08-28 11:54:56,573 - INFO - SSH connection established using password authentication.
+2024-08-28 11:54:56,573 - INFO - SSH connection established for network monitoring check.
+2024-08-28 11:54:56,840 - INFO - Compliance check completed.

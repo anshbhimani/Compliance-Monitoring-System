@@ -1,4 +1,8 @@
 #Ignore
 *.txt
 *.bat
+*.log
 .env
+
+
+myvenv/
