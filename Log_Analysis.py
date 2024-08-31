@@ -119,48 +119,48 @@ def check_log_analysis(ssh):
         logging.error(f"SSH connection failed: {ssh_err}")
         return {"log_analysis": f"SSH connection failed: {ssh_err}"}
 
-def check_compliance(ssh):
+def check_elk(ssh):
     """
     Connects to the server and performs various compliance checks.
     """
-    compliance_issues = {}
+    ELK_ISSUES = {}
     
     try:
-        logging.info("Starting compliance checks.")
+        logging.info("Starting ELK checks.")
         
         if not check_elk_installed(ssh):
-            compliance_issues['elk_installed'] = "ELK stack components are not installed."
+            ELK_ISSUES['elk_installed'] = "ELK stack components are not installed."
         else:
-            compliance_issues['elk_installed'] = "ELK stack components are installed."
+            ELK_ISSUES['elk_installed'] = "ELK stack components are installed."
             
 
         if not check_elk_running(ssh):
-            compliance_issues['elk_running'] = "ELK stack components are not running."
+            ELK_ISSUES['elk_running'] = "ELK stack components are not running."
         else:
-            compliance_issues['elk_running'] = "ELK stack components are running."
+            ELK_ISSUES['elk_running'] = "ELK stack components are running."
 
         log_analysis_result = check_log_analysis(ssh)
-        compliance_issues.update(log_analysis_result)
+        ELK_ISSUES.update(log_analysis_result)
         
         # Add more compliance checks here as needed
         
         # Save compliance results to a JSON file
-        with open('compliance_issues.json', 'w') as file:
-            json.dump(compliance_issues, file, indent=4)
+        with open('ELK ISSUES.json', 'w') as file:
+            json.dump(ELK_ISSUES, file, indent=4)
         
         logging.info("Compliance check completed.")
-        return compliance_issues
+        return ELK_ISSUES
     
     except Exception as e:
-        logging.error(f"Error in check_compliance: {e}")
+        logging.error(f"Error in check_elk: {e}")
         return {"compliance_check": f"Error: {e}"}
 
 if __name__ == "__main__":
     try:
         ssh = create_ssh_client(hostname, username, password)
         
-        compliance_issues = check_compliance(ssh)
-        print(json.dumps(compliance_issues, indent=4))
+        ELK_ISSUES = check_elk(ssh)
+        print(json.dumps(ELK_ISSUES, indent=4))
         
         ssh.close()
     except Exception as e:
