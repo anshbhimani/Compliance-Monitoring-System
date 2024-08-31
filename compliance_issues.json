@@ -1,30 +1,5 @@
 {
-    "track_and_monitor_access": [
-        "Audit trails not present in /var/log/auth.log.",
-        "System clocks are not synchronized."
-    ],
-    "test_security_systems": [
-        "IDS/IPS (snort) is not running or not active."
-    ],
-    "check_security_policy": [
-        "Security policy document (policy_document.txt) is missing or outdated.",
-        "Security awareness program is not active."
-    ],
-    "get_firewall_rules": [
-        "Firewall should default to deny all inbound traffic.",
-        "Firewall should default to deny all outbound traffic."
-    ],
-    "analyze_firewall_rules": [
-        "No rule found allowing SSH (port 22)."
-    ],
-    "check_default_passwords": [
-        "PasswordAuthentication is enabled in SSH configuration. Consider disabling it."
-    ],
-    "check_encryption": [
-        "Data at rest is not encrypted using LUKS or other encryption methods.",
-        "HTTPS is not enabled for data in transit."
-    ],
-    "check_network_monitoring": [
-        "Unusual network activity detected on port 22."
-    ]
+    "elk_installed": "ELK stack components are installed.",
+    "elk_running": "ELK stack components are running.",
+    "log_analysis": "No unauthorized access detected"
 }
