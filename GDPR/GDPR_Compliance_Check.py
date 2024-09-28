@@ -1,238 +1,321 @@
-import importlib
-import json
-import re
 import paramiko
-import logging
-from subprocess import call
-from dotenv import load_dotenv
 import os
-from datetime import datetime
-import mysql.connector
-from mysql.connector import Error
+import logging
+from mysql.connector import connect, Error
+from dotenv import load_dotenv
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 
 # Set up logging
-logging.basicConfig(filename='GDPR_LOG.log', 
+logging.basicConfig(filename='gdpr_compliance_log.log',
                     level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-def check_install_dependency(module_name):
-    try:
-        importlib.import_module(module_name)
-    except ImportError:
-        logging.info(f"{module_name} not found. Installing...")
-        print(f"{module_name} not found. Installing...")
-        call(["pip", "install", module_name])
-
-check_install_dependency("paramiko")
-check_install_dependency("mysql-connector-python")
-
-# Load environment variables from .env file
 load_dotenv()
 
-# Retrieve credentials from environment variables
-hostname = os.getenv('SSH_HOSTNAME')
-username = os.getenv('SSH_USERNAME')
-password = os.getenv('SSH_PASSWORD')
-db_host = hostname  # MySQL database host
-db_user = os.getenv('DB_USER')  # MySQL username
-db_password = os.getenv('DB_PASSWORD')  # MySQL password
-db_name = os.getenv('DB_NAME')  # MySQL database name
+# Load environment variables for SSH and MySQL
+SSH_HOSTNAME = os.getenv('SSH_HOSTNAME')
+SSH_USERNAME = os.getenv('SSH_USERNAME')
+SSH_PASSWORD = os.getenv('SSH_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_NAME = os.getenv('DB_NAME')
 
+# Establish SSH connection
 def create_ssh_client(hostname, username, password):
-    """
-    Creates and returns an SSH client connected to the remote host using password authentication.
-    """
-    print(f"Connecting to SSH server at {hostname} with user {username}...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
+    """Create and return an SSH client connection to the remote machine"""
     try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname, username=username, password=password)
-        logging.info("SSH connection established using password authentication.")
-        print("SSH connection established.")
+        logging.info("SSH connection established.")
         return ssh
     except paramiko.AuthenticationException as e:
         logging.error(f"Authentication failed: {e}")
-        print(f"Authentication failed: {e}")
         raise
     except Exception as e:
-        logging.error(f"Error establishing SSH connection: {e}")
-        print(f"Error establishing SSH connection: {e}")
+        logging.error(f"SSH connection failed: {e}")
         raise
 
-def run_command(ssh_client, command):
-    """
-    Executes a command on the remote SSH client and returns the output.
-    """
-    print(f"Running command: {command}")
+# Run a command on the remote machine
+def run_remote_command(ssh_client, command):
+    """Run a shell command on the remote machine via SSH"""
     stdin, stdout, stderr = ssh_client.exec_command(command)
-    return stdout.read().decode()
+    output = stdout.read().decode()
+    return output.strip()
 
-def log_data_access(db_user_id, accessed_by, vendor, query, allowed_access):
-    """
-    Logs each data access attempt.
-    """
+# Check 1: Verify SSH connection is secure
+def check_ssh_connection(ssh_client):
+    description = "Ensure that the SSH connection to the server is secure and functioning."
+    remedy = "Verify SSH credentials and ensure that the server is accessible. Enable stronger SSH encryption and use key-based authentication."
     try:
-        connection = mysql.connector.connect(
-            host=hostname,
-            port=3306,
-            user=db_user,
-            password=db_password,
-            database=db_name
-        )
+        ssh_client.exec_command('ls')
+        logging.info("SSH connection is working.")
+        return "SSH connection", description, "Passed", ""
+    except Exception as e:
+        failure_reason = f"SSH connection test failed: {e}"
+        logging.error(failure_reason)
+        return "SSH connection", description, "Failed", remedy
+
+# Check 2: MySQL database connectivity
+def check_mysql_connection():
+    description = "Ensure that the system can connect to the MySQL database where user data is stored."
+    remedy = "Check the database credentials and ensure the MySQL server is running. Verify network access to the database."
+    try:
+        connection = connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
+        logging.info("MySQL connection established.")
+        connection.close()
+        return "MySQL connection", description, "Passed", ""
+    except Error as e:
+        failure_reason = f"MySQL connection failed: {e}"
+        logging.error(failure_reason)
+        return "MySQL connection", description, "Failed", remedy
+
+# Check 3: Verify existence of privacy policy
+def check_privacy_policy(ssh_client):
+    description = "Verify that the privacy policy exists and is accessible to users."
+    remedy = "Ensure that the privacy policy is uploaded to the server and placed in the correct directory. Check permissions to make it accessible."
+    try:
+        result = run_remote_command(ssh_client, 'cat /path/to/privacy_policy.txt')  # Update path
+        if "Privacy Policy" in result:
+            logging.info("Privacy policy found.")
+            return "Privacy policy", description, "Passed", ""
+        else:
+            failure_reason = "Privacy policy not found."
+            logging.warning(failure_reason)
+            return "Privacy policy", description, "Failed", remedy
+    except Exception as e:
+        failure_reason = f"Failed to check privacy policy: {e}"
+        logging.error(failure_reason)
+        return "Privacy policy", description, "Failed", remedy
+
+# Check 4: Verify user consent management
+def check_user_consent():
+    description = "Ensure that user consent for data processing is recorded and managed in the system."
+    remedy = "Implement user consent tracking in the database. Store records for user consent, especially for third-party sharing."
+    try:
+        query = "SELECT consent_third_party_sharing FROM users;"
+        connection = connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
         cursor = connection.cursor()
-
-        # Insert into audit log
-        log_query = """
-        INSERT INTO audit_log (user_id, accessed_data, accessed_by, vendor, access_time, allowed_access)
-        VALUES (%s, %s, %s, %s, %s, %s);
-        """
-        access_time = datetime.now()
-        cursor.execute(log_query, (db_user_id, query, accessed_by, vendor, access_time, allowed_access))
-        connection.commit()
-
-        logging.info(f"Audit log created for user ID {db_user_id} accessed by {accessed_by} from vendor {vendor} with query: {query}")
-
-    except Error as e:
-        logging.error(f"Failed to create audit log: {e}")
-        print(f"Failed to create audit log: {e}")
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
-
-def check_user_consent_and_execute_query(db_user_id, vendor, query):
-    """
-    Intercept the query, check user consent, and then execute the query only if the user has granted consent to the vendor.
-    """
-    try:
-        # Establish a connection to the MySQL database
-        connection = mysql.connector.connect(
-            host=hostname,
-            port=3306,
-            user=db_user,
-            password=db_password,
-            database=db_name
-        )
-        cursor = connection.cursor(dictionary=True)
-
-        # Query to check user consent and allowed vendors
-        consent_query = """
-        SELECT consent_third_party_sharing, allowed_vendors 
-        FROM users WHERE user_id = %s;
-        """
-        cursor.execute(consent_query, (db_user_id,))
-        user = cursor.fetchone()
-
-        if user:
-            consent = user['consent_third_party_sharing']
-            allowed_vendors = user['allowed_vendors'].split(',') if user['allowed_vendors'] else []
-
-            # Check if vendor is allowed
-            if vendor in allowed_vendors and consent:
-                logging.info(f"Vendor {vendor} is allowed to access user ID {db_user_id}'s data.")
-
-                # Execute the original query since the user has consented and vendor is allowed
-                cursor.execute(query)
-                result = cursor.fetchall()
-
-                # Log the data access
-                log_data_access(db_user_id, 'SystemAdmin', vendor, query, allowed_access=True)
-
-                return result
-
-            else:
-                logging.warning(f"Access denied: Vendor {vendor} is NOT allowed to access user ID {db_user_id}'s data or consent not granted.")
-                log_data_access(db_user_id, 'SystemAdmin', vendor, query, allowed_access=False)
-
-                # Deny access
-                raise PermissionError(f"Access denied: Vendor {vendor} is NOT allowed to access data for user ID {db_user_id}.")
-        else:
-            logging.error(f"User with ID {db_user_id} not found.")
-            print(f"User with ID {db_user_id} not found.")
-            return None
-
-    except Error as e:
-        logging.error(f"MySQL error: {e}")
-        print(f"MySQL error: {e}")
-        raise
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
-            logging.info("MySQL connection closed after query execution.")
-
-if __name__ == "__main__":
-    try:
-        print("Starting GDPR-compliant query monitoring...")
-        # Example usage: Vendor trying to access user data
-        user_id = 1
-        vendor = 'vendor1'
-        query = "SELECT first_name, last_name FROM users WHERE user_id = 1;"
-
-        # Intercept the query and check user consent before execution
-        result = check_user_consent_and_execute_query(user_id, vendor, query)
-        if result:
-            print(f"Query executed successfully: {result}")
-        else:
-            print("Query execution failed due to non-compliance.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        logging.error(f"An error occurred: {e}")
-def generate_compliance_report():
-    """
-    Generate a report of all users who have not provided consent for third-party data sharing.
-    """
-    try:
-        connection = mysql.connector.connect(
-            host=db_host,
-            port=3306,
-            user=db_user,
-            password=db_password,
-            database=db_name
-        )
-        cursor = connection.cursor(dictionary=True)
-        
-        # Query to list all non-compliant users
-        query = """
-        SELECT user_id, first_name, last_name 
-        FROM users WHERE consent_third_party_sharing = 0;
-        """
         cursor.execute(query)
-        non_compliant_users = cursor.fetchall()
+        result = cursor.fetchall()
+        connection.close()
 
-        if non_compliant_users:
-            logging.info(f"Non-compliant users found: {len(non_compliant_users)}")
-            for user in non_compliant_users:
-                print(f"User {user['first_name']} {user['last_name']} has not provided consent.")
-                logging.info(f"User {user['first_name']} {user['last_name']} non-compliant.")
+        if result:
+            logging.info("User consent management found.")
+            return "User consent management", description, "Passed", ""
         else:
-            logging.info("All users are compliant.")
-            print("All users are compliant.")
-    
+            failure_reason = "No user consent management found."
+            logging.warning(failure_reason)
+            return "User consent management", description, "Failed", remedy
     except Error as e:
-        logging.error(f"Failed to generate compliance report: {e}")
-        print(f"Failed to generate compliance report: {e}")
+        failure_reason = f"MySQL error during user consent check: {e}"
+        logging.error(failure_reason)
+        return "User consent management", description, "Failed", remedy
+
+# Check 5: Verify encryption settings
+def check_encryption(ssh_client):
+    description = "Ensure that MySQL database encryption (SSL) is enabled."
+    remedy = "Configure SSL encryption for MySQL. Ensure the 'my.cnf' file has SSL enabled."
+    try:
+        result = run_remote_command(ssh_client, 'grep -i "SSL" /etc/mysql/my.cnf')  # Change path if necessary
+        if "SSL" in result:
+            logging.info("MySQL SSL encryption is enabled.")
+            return "MySQL encryption", description, "Passed", ""
+        else:
+            failure_reason = "MySQL SSL encryption not enabled."
+            logging.warning(failure_reason)
+            return "MySQL encryption", description, "Failed", remedy
+    except Exception as e:
+        failure_reason = f"Failed to check encryption settings: {e}"
+        logging.error(failure_reason)
+        return "MySQL encryption", description, "Failed", remedy
+
+# Additional GDPR checks
+# Check 6: Verify data retention policy is in place
+def check_data_retention_policy(ssh_client):
+    description = "Verify that a data retention policy is in place, ensuring data is stored for only as long as necessary."
+    remedy = "Create a data retention policy document and upload it to the server. Ensure users are informed of how long their data is retained."
+    try:
+        result = run_remote_command(ssh_client, 'cat /path/to/data_retention_policy.txt')  # Update path
+        if "Retention Period" in result:
+            logging.info("Data retention policy found.")
+            return "Data retention policy", description, "Passed", ""
+        else:
+            failure_reason = "Data retention policy not found."
+            logging.warning(failure_reason)
+            return "Data retention policy", description, "Failed", remedy
+    except Exception as e:
+        failure_reason = f"Failed to check data retention policy: {e}"
+        logging.error(failure_reason)
+        return "Data retention policy", description, "Failed", remedy
+
+# Check 7: Verify data breach detection policy
+def check_data_breach_policy(ssh_client):
+    description = "Ensure that a data breach detection and notification policy is in place."
+    remedy = "Develop a data breach response plan, including detection mechanisms and notification procedures, and store it on the server."
+    try:
+        result = run_remote_command(ssh_client, 'cat /path/to/data_breach_policy.txt')  # Update path
+        if "Data Breach" in result:
+            logging.info("Data breach policy found.")
+            return "Data breach policy", description, "Passed", ""
+        else:
+            failure_reason = "Data breach policy not found."
+            logging.warning(failure_reason)
+            return "Data breach policy", description, "Failed", remedy
+    except Exception as e:
+        failure_reason = f"Failed to check data breach policy: {e}"
+        logging.error(failure_reason)
+        return "Data breach policy", description, "Failed", remedy
+
+# Check 8: Verify user right to access data
+def check_user_right_to_access():
+    description = "Ensure users can access their data stored in the system, in compliance with GDPR."
+    remedy = "Implement a user access request feature that allows users to retrieve a copy of their stored data."
+    try:
+        query = "SELECT first_name, last_name FROM users WHERE user_id = 1;"  # Example query
+        connection = connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
+        cursor = connection.cursor()
+        cursor.execute(query)
+        result = cursor.fetchall()
+        connection.close()
+
+        if result:
+            logging.info("Right to access check passed.")
+            return "Right to access", description, "Passed", ""
+        else:
+            failure_reason = "Right to access check failed."
+            logging.warning(failure_reason)
+            return "Right to access", description, "Failed", remedy
+    except Error as e:
+        failure_reason = f"MySQL error during right to access check: {e}"
+        logging.error(failure_reason)
+        return "Right to access", description, "Failed", remedy
+
+# Check 9: Verify user right to erasure (right to be forgotten)
+def check_user_right_to_erasure():
+    description = "Ensure users have the ability to request the erasure of their data (Right to be forgotten)."
+    remedy = "Implement functionality for users to request the deletion of their data, and ensure this is processed promptly."
+    try:
+        query = "SELECT user_id FROM users WHERE user_id = 1;"  # Example query for deletion
+        connection = connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
+        cursor = connection.cursor()
+        cursor.execute(query)
+        result = cursor.fetchall()
+        connection.close()
+
+        if result:
+            logging.info("Right to erasure check passed.")
+            return "Right to erasure", description, "Passed", ""
+        else:
+            failure_reason = "Right to erasure check failed."
+            logging.warning(failure_reason)
+            return "Right to erasure", description, "Failed", remedy
+    except Error as e:
+        failure_reason = f"MySQL error during right to erasure check: {e}"
+        logging.error(failure_reason)
+        return "Right to erasure", description, "Failed", remedy
+
+# Check 10: Verify third-party vendor contracts
+def check_vendor_contracts(ssh_client):
+    description = "Ensure contracts with third-party vendors are in place and GDPR-compliant."
+    remedy = "Obtain GDPR-compliant contracts from third-party vendors who process personal data."
+    try:
+        result = run_remote_command(ssh_client, 'cat /path/to/vendor_contracts.txt')  # Update path
+        if "Vendor Agreement" in result:
+            logging.info("Vendor contracts found.")
+            return "Third-party vendor contracts", description, "Passed", ""
+        else:
+            failure_reason = "Vendor contracts not found."
+            logging.warning(failure_reason)
+            return "Third-party vendor contracts", description, "Failed", remedy
+    except Exception as e:
+        failure_reason = f"Failed to check third-party vendor contracts: {e}"
+        logging.error(failure_reason)
+        return "Third-party vendor contracts", description, "Failed", remedy
+
+# Generate PDF report with improved formatting
+def generate_pdf_report(checks):
+    pdf_filename = "GDPR_Compliance_Report.pdf"
+    doc = SimpleDocTemplate(pdf_filename, pagesize=letter)
+    elements = []
+
+    styles = getSampleStyleSheet()
+    title_style = styles['Title']
+    heading_style = styles['Heading2']
+    normal_style = styles['Normal']
+
+    # Add Title
+    elements.append(Paragraph("GDPR Compliance Report", title_style))
+    elements.append(Spacer(1, 0.5 * inch))
+
+    # Add Header for the table section
+    elements.append(Paragraph("Compliance Check Results", heading_style))
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # Create table data with proper headers
+    table_data = [["Check", "Description", "Result", "Remedy (if failed)"]]
+
+    # Append each check's details (name, description, result, and remedy)
+    for check in checks:
+        check_name = Paragraph(check[0], normal_style)
+        description = Paragraph(check[1], normal_style)
+        result = Paragraph(check[2], normal_style)
+        remedy = Paragraph(check[3], normal_style) if check[2] == "Failed" else Paragraph("", normal_style)
+        
+        # Add the check details row to table data
+        table_data.append([check_name, description, result, remedy])
+
+    # Create table with formatting and styling
+    table = Table(table_data, colWidths=[2.5 * inch, 4 * inch, 1 * inch, 4 * inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Center align for result column
+    ]))
+
+    elements.append(table)
     
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
-            logging.info("MySQL connection closed after report generation.")
-            print("MySQL connection closed after report generation.")
+    # Build the PDF
+    doc.build(elements)
+    logging.info(f"PDF report generated: {pdf_filename}")
+    
+# Main function
+def main():
+    try:
+        ssh_client = create_ssh_client(SSH_HOSTNAME, SSH_USERNAME, SSH_PASSWORD)
+        checks = []
+
+        # Perform compliance checks
+        checks.append(check_ssh_connection(ssh_client))
+        checks.append(check_mysql_connection())
+        checks.append(check_privacy_policy(ssh_client))
+        checks.append(check_user_consent())
+        checks.append(check_encryption(ssh_client))
+        checks.append(check_data_retention_policy(ssh_client))
+        checks.append(check_data_breach_policy(ssh_client))
+        checks.append(check_user_right_to_access())
+        checks.append(check_user_right_to_erasure())
+        checks.append(check_vendor_contracts(ssh_client))
+
+        # Generate PDF report
+        generate_pdf_report(checks)
+
+        ssh_client.close()
+        logging.info("SSH connection closed.")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    try:
-        print("Starting SSH and MySQL check process...")
-        ssh = create_ssh_client(hostname, username, password)
-        result = check_user_consent_status(ssh, 1)
-        if result:
-            print("Consent check passed.")
-        else:
-            print("Consent check failed.")
-        # Generate a compliance report
-        generate_compliance_report()
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        logging.error(f"An error occurred: {e}")
+    main()
