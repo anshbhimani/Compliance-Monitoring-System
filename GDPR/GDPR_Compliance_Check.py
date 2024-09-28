@@ -4,7 +4,7 @@ import logging
 from mysql.connector import connect, Error
 from dotenv import load_dotenv
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
@@ -241,54 +241,77 @@ def check_vendor_contracts(ssh_client):
 # Generate PDF report with improved formatting
 def generate_pdf_report(checks):
     pdf_filename = "GDPR_Compliance_Report.pdf"
-    doc = SimpleDocTemplate(pdf_filename, pagesize=letter)
+    doc = SimpleDocTemplate(
+        pdf_filename, 
+        pagesize=A4, 
+        rightMargin=0.5*inch, 
+        leftMargin=0.5*inch, 
+        topMargin=1*inch, 
+        bottomMargin=1*inch
+    )
     elements = []
 
+    # Define styles
     styles = getSampleStyleSheet()
     title_style = styles['Title']
     heading_style = styles['Heading2']
     normal_style = styles['Normal']
-
+    table_header_style = styles['Heading4']
+    
     # Add Title
     elements.append(Paragraph("GDPR Compliance Report", title_style))
     elements.append(Spacer(1, 0.5 * inch))
 
-    # Add Header for the table section
+    # Add a section heading for the table
     elements.append(Paragraph("Compliance Check Results", heading_style))
-    elements.append(Spacer(1, 0.2 * inch))
+    elements.append(Spacer(1, 0.3 * inch))
 
-    # Create table data with proper headers
-    table_data = [["Check", "Description", "Result", "Remedy (if failed)"]]
+    # Define table headers and their styling
+    table_data = [
+        [
+            Paragraph("<b>Check</b>", table_header_style),
+            Paragraph("<b>Description</b>", table_header_style),
+            Paragraph("<b>Result</b>", table_header_style),
+            Paragraph("<b>Remedy (if failed)</b>", table_header_style)
+        ]
+    ]
 
-    # Append each check's details (name, description, result, and remedy)
+    # Add each compliance check result to the table
     for check in checks:
         check_name = Paragraph(check[0], normal_style)
         description = Paragraph(check[1], normal_style)
-        result = Paragraph(check[2], normal_style)
-        remedy = Paragraph(check[3], normal_style) if check[2] == "Failed" else Paragraph("", normal_style)
+        result = Paragraph(f"<b>{check[2]}</b>", normal_style)
+        remedy = Paragraph(check[3], normal_style) if check[2] == "Failed" else Paragraph("N/A", normal_style)
         
-        # Add the check details row to table data
+        # Add the check's row to the table
         table_data.append([check_name, description, result, remedy])
 
-    # Create table with formatting and styling
-    table = Table(table_data, colWidths=[2.5 * inch, 4 * inch, 1 * inch, 4 * inch])
+    # Define table layout, column widths, and formatting
+    table = Table(table_data, colWidths=[1 * inch, 2 * inch, 1 * inch, 3 * inch])
+    
+    # Define the table style
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4F81BD")),  # Header background color
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Header text color
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Header font
         ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.beige, colors.lightgrey]),  # Alternating row colors
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Center align the "Result" column
         ('VALIGN', (0, 1), (-1, -1), 'TOP'),
-        ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Center align for result column
+        ('TEXTCOLOR', (2, 1), (2, -1), colors.green),  # Green text for "Passed"
+        ('TEXTCOLOR', (2, 1), (2, -1), colors.red),    # Red text for "Failed"
     ]))
 
+    # Add the table to the document
     elements.append(table)
-    
+
     # Build the PDF
     doc.build(elements)
+    print(f"PDF report generated: {pdf_filename}")
     logging.info(f"PDF report generated: {pdf_filename}")
     
 # Main function
