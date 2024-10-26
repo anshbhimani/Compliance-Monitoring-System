@@ -1,3 +1,4 @@
+# GDPR_COMPLIANCE_CHECK.PY
 import paramiko
 import os
 import logging
@@ -32,12 +33,15 @@ def create_ssh_client(hostname, username, password):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname, username=username, password=password)
+        print("SSH connection established.")
         logging.info("SSH connection established.")
         return ssh
     except paramiko.AuthenticationException as e:
+        print(f"Authentication failed: {e}")
         logging.error(f"Authentication failed: {e}")
         raise
     except Exception as e:
+        print(f"SSH connection failed: {e}")
         logging.error(f"SSH connection failed: {e}")
         raise
 
@@ -314,8 +318,8 @@ def generate_pdf_report(checks):
     print(f"PDF report generated: {pdf_filename}")
     logging.info(f"PDF report generated: {pdf_filename}")
     
-# Main function
-def main():
+    
+def run_compliance_checks():
     try:
         ssh_client = create_ssh_client(SSH_HOSTNAME, SSH_USERNAME, SSH_PASSWORD)
         checks = []
@@ -331,12 +335,19 @@ def main():
         checks.append(check_user_right_to_access())
         checks.append(check_user_right_to_erasure())
         checks.append(check_vendor_contracts(ssh_client))
-
-        # Generate PDF report
-        generate_pdf_report(checks)
-
         ssh_client.close()
         logging.info("SSH connection closed.")
+        return checks
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return None
+        
+        
+# Main function
+def main():
+    try:
+        checks = run_compliance_checks()
+        generate_pdf_report(checks)
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 

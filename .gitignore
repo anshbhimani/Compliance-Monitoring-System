@@ -3,6 +3,7 @@
 *.bat
 *.log
 .env
+/myenv
 
 
 myvenv/

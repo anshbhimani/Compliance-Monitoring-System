@@ -1,3 +1,4 @@
+# PCI DSS COMPLIANCE
 import paramiko
 import os
 import logging
@@ -428,6 +429,8 @@ def run_compliance_checks():
         checks.append(check_network_monitoring(SSH_HOSTNAME, SSH_USERNAME, SSH_PASSWORD))  # Ensure network monitoring checks are included
         
         ssh_client.close()
+        logging.info("SSH connection closed.")
+        return checks
     except Exception as e:
         logging.error(f"Compliance check failed: {e}")
     
