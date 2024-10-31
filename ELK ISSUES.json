@@ -1,5 +1,0 @@
-{
-    "elk_installed": "ELK stack components are installed.",
-    "elk_running": "ELK stack components are running.",
-    "log_analysis": "No unauthorized access detected"
-}
