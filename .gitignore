@@ -1,0 +1,9 @@
+#Ignore
+*.txt
+*.bat
+*.log
+.env
+/myenv
+
+
+myvenv/
