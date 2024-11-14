@@ -1,0 +1,19 @@
+- name: "Network Check"
+  path: "scripts/Network_Monitoring.py"
+  compliance: ["PCI DSS", "HIPAA"]
+  enabled: true
+
+- name: "Firewall Check"
+  path: "scripts/UAC_Rules.py"
+  compliance: ["PCI DSS", "GDPR"]
+  enabled: true
+
+- name: "Encryption Check"
+  path: "scripts/Check_encryption_rules.py"
+  compliance: ["HIPAA", "NIST"]
+  enabled: true
+
+- name: "Load Monitoring"
+  path: "scripts/load_monitor.py"
+  compliance: ["PCI DSS", "HIPAA"]
+  enabled: true

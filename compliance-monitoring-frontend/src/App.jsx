@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import Dashboard from './components/Dashboard';
-import ComplianceBuilder from './components/ComplianceBuilder';
 import CredentialForm from './components/CredentialForm';
 import Navbar from './components/Navbar';
 import ProjectDescription from './components/ProjectDescription';
+import ScriptManager from './components/ScriptManger';
+import ComplianceBuilder from './components/Compliance_Builder';
+
 
 function App() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +21,15 @@ function App() {
             <button onClick={openModal}>Add SSH Credentials</button>
             {isModalOpen && <CredentialForm onClose={closeModal} />}
             <Dashboard />
-            <ComplianceBuilder />
+            <main>
+                {/* Section for managing scripts */}
+                <section>
+                    <ScriptManager />
+                </section>
+                <section>
+                    <ComplianceBuilder />
+                </section>
+            </main>
         </div>
     );
 }

@@ -1,6 +1,8 @@
 import paramiko
 import logging
 import re
+import json
+import os
 
 logging.basicConfig(level=logging.INFO,filename='LogFile.log',filemode='a',format='%(asctime)s - %(levelname)s - File: %(filename)s , Line: %(lineno)d - %(message)s')
 
@@ -41,11 +43,11 @@ def check_file_permissions(ssh, filepath):
 
     # Check if permissions are overly permissive
     if '777' in output:
-        return f"Warning: {filepath} has overly permissive permissions (777)."
+        return {"file": filepath, "result": "Warning", "message": f"{filepath} has overly permissive permissions (777)."}
     elif re.search(r'^[^r].* ', output):  # No read access for others
-        return f"Alert: {filepath} has restricted permissions."
+        return {"file": filepath, "result": "Alert", "message": f"{filepath} has restricted permissions."}
     else:
-        return f"{filepath} permissions are appropriately restricted."
+        return {"file": filepath, "result": "OK", "message": f"{filepath} permissions are appropriately restricted."}
 
 def analyze_logs_for_compliance(ssh, log_path):
     """
@@ -70,9 +72,9 @@ def analyze_logs_for_compliance(ssh, log_path):
         issues.append("Unauthorized access attempts detected; review access policies.")
 
     if not issues:
-        return f"Log analysis for {log_path} shows no critical issues."
+        return {"log": log_path, "result": "OK", "message": "Log analysis shows no critical issues."}
     else:
-        return f"Issues found in {log_path}: " + "; ".join(issues)
+        return {"log": log_path, "result": "Issues Found", "message": "; ".join(issues)}
 
 def check_password_policy(ssh):
     """
@@ -94,8 +96,11 @@ def check_password_policy(ssh):
     if "ENCRYPT_METHOD" not in output:
         issues.append("Missing encryption method for passwords (ENCRYPT_METHOD).")
 
-    return "Password Policy Check", "; ".join(issues) if issues else "Password policy is properly configured."
-
+    return {
+        "check": "Password Policy Check",
+        "result": "Issues Found" if issues else "OK",
+        "message": "; ".join(issues) if issues else "Password policy is properly configured."
+    }
 def check_account_lockout_policy(ssh):
     """
     Check if account lockout policies are enforced after failed login attempts.
@@ -106,9 +111,9 @@ def check_account_lockout_policy(ssh):
     logging.info(f"Account Lockout Policy:\n{output}")
 
     if "deny=" in output:
-        return "Account lockout policy is properly configured."
+        return {"check": "Account Lockout Policy", "result": "OK", "message": "Account lockout policy is properly configured."}
     else:
-        return "Account lockout policy is NOT properly configured."
+        return {"check": "Account Lockout Policy", "result": "Alert", "message": "Account lockout policy is NOT properly configured."}
 
 def check_sudo_access(ssh):
     """
@@ -125,46 +130,49 @@ def check_sudo_access(ssh):
     if re.search(r'^%admin|^root', output):
         issues.append("Sudo access for admin/root is present; ensure proper restrictions.")
 
-    return "Sudo Access Check", "; ".join(issues) if issues else "Sudo access is appropriately restricted."
-
-def run_checks(ssh,password):
+    return {
+        "check": "Sudo Access Check",
+        "result": "Issues Found" if issues else "OK",
+        "message": "; ".join(issues) if issues else "Sudo access is appropriately restricted."
+    }
+    
+def run_checks(ssh, password):
     """
     Run all user access control checks and log their results.
     """
-    results = []
+    results = {}
 
     # Check user access control files
     for filepath in COMMON_USER_ACCESS_FILES:
         result = check_file_permissions(ssh, filepath)
-        results.append(result)
+        results[filepath] = result
 
     # Check password policy
     password_policy_result = check_password_policy(ssh)
-    results.append(password_policy_result)
+    results["password_policy"] = password_policy_result
 
     # Check account lockout policy
     lockout_policy_result = check_account_lockout_policy(ssh)
-    results.append(lockout_policy_result)
+    results["account_lockout_policy"] = lockout_policy_result
 
     # Check sudo access policy
     sudo_access_result = check_sudo_access(ssh)
-    results.append(sudo_access_result)
+    results["sudo_access_policy"] = sudo_access_result
 
     # Check logs for critical compliance issues in popular software
     for software, log_path in SOFTWARE_LOGS.items():
         log_analysis_result = analyze_logs_for_compliance(ssh, log_path)
-        results.append(log_analysis_result)
+        results[software] = log_analysis_result
 
     return results
 
 def main():
     # Configure logging
     logging.basicConfig(level=logging.INFO)
-
-    # Remote machine details
-    hostname = "remote_host"
-    username = "your_username"
-    password = "your_password"  # Use key-based auth for better security
+    
+    hostname =  os.environ['SSH_HOSTNAME']
+    username = os.environ['SSH_USERNAME']
+    password = os.environ['SSH_PASSWORD']
 
     try:
         # Establish SSH connection
@@ -176,9 +184,9 @@ def main():
         # Run all checks and collect results
         results = run_checks(ssh)
 
-        # Log the results
-        for result in results:
-            logging.info(result)
+         # Log the results as JSON
+        json_results = json.dumps(results, indent=4)  # Convert results to JSON
+        logging.info(f"Results:\n{json_results}")
 
         # Close SSH connection
         ssh.close()

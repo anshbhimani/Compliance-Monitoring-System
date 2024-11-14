@@ -1,6 +1,8 @@
 import re
 import logging
 import time
+import traceback
+import json
 
 # Define common network monitoring commands
 CHECK_PORTS_COMMAND = "sudo ss -tuln"  # Check active ports and listening services
@@ -27,9 +29,9 @@ def run_sudo_command(ssh, command, password):
         stdin, stdout, stderr = ssh.exec_command(f"sudo -S {command}")
         stdin.write(password + "\n")  # Provide the password
         stdin.flush()
-        return stdout.read().decode('utf-8')
+        return stdout.read().decode('utf-8'), stderr.read().decode('utf-8')
     except Exception as e:
-        return f"Error executing command: {e}"
+        return f"Error executing command: {e}", ""
 
 def check_active_ports(ssh, password):
     """Check for active listening ports and services."""
@@ -76,9 +78,9 @@ def analyze_network_logs(ssh, password):
     command = "tshark -i any -T fields -e frame.time -e ip.src -e ip.dst -e tcp.port -e http.request.uri"
     print_and_log("Starting continuous network traffic analysis...")
     
+    issues_found = []
+    
     try:
-        issues_found = []
-        
         while True:
             network_logs, _ = run_sudo_command(ssh, command, password)
             message = f"Network Traffic Analysis:\n{network_logs}"
@@ -173,9 +175,9 @@ def check_http_service(ssh, password):
 
     issues = []
     if "200 OK" not in http_output:
-        issues.append("HTTP service is down: ensure the web server is running.")
+        issues.append("HTTP service is not responding: check service status.")
 
-    return "HTTP Service Check", ": ".join(issues) if issues else "HTTP service is running fine."
+    return "HTTP Service Check", ": ".join(issues) if issues else "HTTP service is up and running."
 
 def check_https_service(ssh, password):
     """Check the availability of the HTTPS service."""
@@ -185,68 +187,40 @@ def check_https_service(ssh, password):
 
     issues = []
     if "200 OK" not in https_output:
-        issues.append("HTTPS service is down: ensure SSL/TLS configurations are correct.")
+        issues.append("HTTPS service is not responding: check service status.")
 
-    return "HTTPS Service Check", ": ".join(issues) if issues else "HTTPS service is running fine."
+    return "HTTPS Service Check", ": ".join(issues) if issues else "HTTPS service is up and running."
 
-def check_db_connections(ssh, password):
-    """Check active database connections and listening services."""
+def check_database_connections(ssh, password):
+    """Check for active database connections and listening services."""
     db_output, _ = run_sudo_command(ssh, CHECK_DB_CONNECTIONS, password)
     message = f"Database Connections Check:\n{db_output}"
     print_and_log(message)
 
     issues = []
     if re.search(r'LISTEN', db_output):
-        issues.append("Database is listening on a public interface: restrict access to localhost.")
-
-    return "Database Connections Check", ": ".join(issues) if issues else "Database connections are secure."
+        issues.append("Database services are listening: ensure proper access controls.")
+    
+    return "Database Connections Check", ": ".join(issues) if issues else "No issues found with database connections."
 
 def check_active_ssh_users(ssh, password):
-    """Count active SSH users to ensure access control."""
-    active_users_output, _ = run_sudo_command(ssh, CHECK_ACTIVE_SSH_USERS, password)
-    message = f"Active SSH Users Count:\n{active_users_output}"
+    """Check for the number of active SSH users."""
+    ssh_output, _ = run_sudo_command(ssh, CHECK_ACTIVE_SSH_USERS, password)
+    message = f"Active SSH Users Count:\n{ssh_output}"
     print_and_log(message)
 
     issues = []
-    if int(active_users_output) > 5:  # Threshold for active SSH users
-        issues.append("Too many active SSH users detected: review access control policies.")
+    if int(ssh_output.strip()) > 5:  # Threshold for active users
+        issues.append("More than 5 active SSH users detected: review for potential security risks.")
 
-    return "Active SSH Users Check", ": ".join(issues) if issues else "Active SSH user count is within acceptable limits."
+    return "Active SSH Users Check", ": ".join(issues) if issues else "Active SSH user count is acceptable."
 
-def check_database_connections(ssh,password):
-    """
-    Check for active database connections.
-    """
-    db_output, _ = run_sudo_command(ssh,CHECK_DB_CONNECTIONS,password)
-    logging.info(f"Active Database Connections:\n{db_output}")
-
-    issues = []
-    if re.search(r'LISTEN', db_output):
-        issues.append("Active database connections detected; ensure they are necessary and secure.")
-
-    return "Database Connection Check", ": ".join(issues) if issues else "No active database connections detected."
-
-def compliance_report(ssh, password):
-    """Compile and print the compliance report for security checks."""
-    print_and_log("Starting compliance checks...\n")
-
-    checks = [
-        check_active_ports(ssh, password),
-        check_firewall_rules(ssh, password),
-        analyze_network_logs(ssh, password),
-        check_authentication_logs(ssh, password),
-        check_unencrypted_data_flow(ssh, password),
-        check_ntp_status(ssh, password),
-        check_dns_configuration(ssh, password),
-        check_http_service(ssh, password),
-        check_https_service(ssh, password),
-        check_db_connections(ssh, password),
-        check_active_ssh_users(ssh, password),
-        check_database_connections(ssh,password)
-    ]
-
-    for title, issues in checks:
-        print_and_log(f"{title}: {issues}\n")
+def generate_report(compliance_results):
+    """Generate a JSON object from compliance results."""
+    report = {}
+    for title, result in compliance_results:
+        report[title] = result
+    return report
 
 def run_checks(ssh,password):
     """
@@ -269,14 +243,12 @@ def run_checks(ssh,password):
         results.append("Database Connections Check: " + check_database_connections(ssh, password))  # Check active database connections for security
         results.append("Active SSH Users Check: " + check_active_ssh_users(ssh, password))  # Count active SSH users and review access
 
-
-        for title, issues in results:
-            print_and_log(f"{title}: {issues}\n")
+        report = generate_report(results)
             
-        return {"status": "success", "results": results}
+        return json.dumps(report, indent=4)
     
     except Exception as e:
-        logging.error(f"Error in run_checks: {str(e)}")
-        return {"error": f"Error from Network_Monitoring.py: {str(e)}"}, 500
+        logging.error(f"Error in run_checks: {str(e.with_traceback(None))}")
+        return {"error": f"Error from Network_Monitoring.py: {str(e.with_traceback(None))}"}, 500
     finally:
         ssh.close()
