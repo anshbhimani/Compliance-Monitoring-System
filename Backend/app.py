@@ -7,9 +7,9 @@ import logging
 
 app = Flask(__name__)
 
-hostname = '100.127.172.16'
-username = 'ansh'
-password = 'abkavya26@'
+hostname = ''
+username = ''
+password = ''
 
 SCRIPTS_DIR = '../Backend/scripts'
 # Mock database for compliance groups
