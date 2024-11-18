@@ -1,0 +1,3 @@
+SSH_HOSTNAME = "20.244.90.235"
+SSH_USERNAME = "ansh"
+SSH_PASSWORD = "MinorProject@123"

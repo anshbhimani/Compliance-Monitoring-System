@@ -1,0 +1,7 @@
+Flask
+flask-cors
+Flask-SQLAlchemy
+Celery
+redis
+Paramiko
+requests
