@@ -27,7 +27,7 @@ Compliance-Monitoring-System
 
 ## How It Works
 
-[(Flowchart.jpg)](https://github.com/anshbhimani/Compliance-Monitoring-System/blob/anshbhimani-patch-1/Flowchart.jpg)
+![(Flowchart.jpg)](https://github.com/anshbhimani/Compliance-Monitoring-System/blob/anshbhimani-patch-1/Flowchart.jpg)
 
 
 ### Backend (Python-based)
