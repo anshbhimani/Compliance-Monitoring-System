@@ -27,6 +27,7 @@ Compliance-Monitoring-System
 
 ## How It Works
 
+(Flowchart.jpg)
 
 
 ### Backend (Python-based)
